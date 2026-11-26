@@ -1,17 +1,18 @@
-const express=require('express'),http=require('http'),{Server}=require('socket.io');const app=express(),server=http.createServer(app),io=new Server(server);app.use(express.static('public'));const rooms=new Map();function sh(a){for(let i=a.length-1;i>0;i--){let j=Math.random()*(i+1)|0;[a[i],a[j]]=[a[j],a[i]]}return a}function emitPlayers(room,r){io.to(room).emit('lobby',{room,players:[...r.players.values()].map(p=>({...p,alive:r.alive?.has(p.id)??true}))})}
-io.on('connection',s=>{
- s.on('create',({name},cb)=>{let room=Math.random().toString(36).slice(2,8).toUpperCase(),r={host:s.id,players:new Map(),roles:new Map(),ready:new Set(),stage:-1,actions:{},votes:[],alive:new Set(),dealt:false};rooms.set(room,r);r.players.set(s.id,{id:s.id,name,host:true});s.join(room);cb({room});emitPlayers(room,r)});
- s.on('join',({name,room},cb)=>{let r=rooms.get(room);if(!r)return cb({ok:false,error:'الغرفة غير موجودة'});if(r.dealt)return cb({ok:false,error:'بدأت اللعبة'});r.players.set(s.id,{id:s.id,name,host:false});s.join(room);cb({ok:true});emitPlayers(room,r)});
- s.on('deal',({room,mafia,total},cb)=>{let r=rooms.get(room);if(!r||r.host!==s.id)return cb({ok:false,error:'المنظم فقط'});if(r.players.size<5||r.players.size!==total)return cb({ok:false,error:'عدد اللاعبين يجب أن يطابق العدد المحدد (5+).'});if(mafia>=total-2)return cb({ok:false,error:'عدد المافيا كبير بالنسبة للاعبين'});let ids=[...r.players.keys()],pool=Array(mafia).fill('مافيا');['محقق','دكتور','متواطئ','حرامي','الشبح'].forEach(x=>{if(pool.length<ids.length-1)pool.push(x)});while(pool.length<ids.length)pool.push('مواطن');sh(pool).forEach((role,i)=>{r.roles.set(ids[i],role);io.to(ids[i]).emit('role',{room,role})});r.dealt=true;r.alive=new Set(ids);r.actions={};r.votes=[];cb({ok:true});});
- s.on('ready',({room})=>{let r=rooms.get(room);if(!r)return;r.ready.add(s.id);if(r.ready.size===r.players.size)io.to(room).emit('readyAll',{room})});
- s.on('begin',({room},cb)=>{let r=rooms.get(room);if(!r||r.host!==s.id)return cb({ok:false,error:'المنظم فقط'});r.started=true;r.stage=-1;r.actions={};cb({ok:true});});
- s.on('next',({room},cb)=>{let r=rooms.get(room);if(!r||r.host!==s.id||!r.started)return cb({ok:false,error:'غير مسموح'});r.stage++;if(r.stage>=6){resolveNight(room,r);io.to(room).emit('phase',{room,i:6});return cb({ok:true})}io.to(room).emit('phase',{room,i:r.stage});if(r.stage===1){let mafia=[...r.roles.entries()].filter(([id,role])=>role==='مافيا'&&r.alive.has(id)).map(([id])=>r.players.get(id).name);io.to(room).emit('mafiaNames',{room,names:mafia})}cb({ok:true})});
- s.on('requestMafia',({room})=>{let r=rooms.get(room);if(!r)return;let ns=[...r.roles.entries()].filter(([id,role])=>role==='مافيا'&&r.alive.has(id)).map(([id])=>r.players.get(id).name);s.emit('mafiaNames',{room,names:ns})});
- s.on('action',({room,role,targets},cb)=>{let r=rooms.get(room);if(!r||r.roles.get(s.id)!==role||!r.alive.has(s.id))return cb({ok:false,error:'الدور غير مطابق أو خرجت من اللعبة'});let phaseRoles=['مافيا','محقق','حرامي','الشبح','دكتور'];if(!phaseRoles.includes(role))return cb({ok:false,error:'لا يوجد إجراء لهذا الدور'});let count=role==='الشبح'?2:1;if(!Array.isArray(targets)||targets.length!==count||targets.some(t=>!([...r.players.values()].some(p=>p.name===t&&r.alive.has(p.id)))))return cb({ok:false,error:'اختيار غير صالح'});r.actions[role]={id:s.id,targets};cb({ok:true});});
- s.on('vote',({room,target},cb)=>{let r=rooms.get(room);if(!r)return cb({ok:false,error:'الغرفة غير موجودة'});if(!r.alive.has(s.id))return cb({ok:false,error:'لا يمكنك التصويت بعد خروجك'});if(![...r.players.values()].some(p=>p.name===target&&r.alive.has(p.id)))return cb({ok:false,error:'اختيار غير صالح'});r.votes=r.votes.filter(v=>v.id!==s.id);r.votes.push({id:s.id,target});cb({ok:true});});
- s.on('newround',({room},cb)=>{let r=rooms.get(room);if(!r||r.host!==s.id)return cb({ok:false,error:'المنظم فقط'});let tally={};r.votes.forEach(v=>tally[v.target]=(tally[v.target]||0)+1);let max=Math.max(0,...Object.values(tally)),tie=Object.keys(tally).filter(n=>tally[n]===max&&max>0);if(tie.length===1){let p=[...r.players.values()].find(p=>p.name===tie[0]);if(p)r.alive.delete(p.id)}let winners=checkWin(r);io.to(room).emit('voteResult',{room,out:tie.length===1?tie[0]:'لا أحد (تعادل أو بلا أصوات)',winners,alive:[...r.alive].map(id=>r.players.get(id).name)});if(winners){r.started=false;cb({ok:true});return}r.stage=-1;r.actions={};r.votes=[];io.to(room).emit('round',{room});cb({ok:true});});
- s.on('disconnect',()=>{for(let [room,r]of rooms){if(r.players.has(s.id)){r.players.delete(s.id);r.roles.delete(s.id);r.alive.delete(s.id);if(!r.players.size){rooms.delete(room);continue}if(r.host===s.id){r.host=r.players.keys().next().value;r.players.get(r.host).host=true}emitPlayers(room,r)}}});
+const express = require('express');
+const path = require('path');
+
+const app = express();
+const PORT = process.env.PORT || 3000;
+
+// عرض ملفات الموقع
+app.use(express.static(path.join(__dirname, 'public')));
+
+// الصفحة الرئيسية
+app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
-function resolveNight(room,r){let a=r.actions||{},nameOf=id=>r.players.get(id)?.name,find=name=>[...r.players.values()].find(p=>p.name===name)?.id;let mafia=a['مافيا']?.targets?.[0],doctor=a['دكتور']?.targets?.[0],victim=mafia&&mafia!==doctor?find(mafia):null;if(victim)r.alive.delete(victim);if(a['محقق']){let id=find(a['محقق'].targets[0]);if(id)io.to(a['محقق'].id).emit('investigation',{room,target:nameOf(id),result:r.roles.get(id)==='مافيا'?'مافيا':'ليس مافيا'})}if(a['حرامي']){let x=find(a['حرامي'].targets[0]),y=a['حرامي'].id;if(x&&r.alive.has(x)){let temp=r.roles.get(x);r.roles.set(x,r.roles.get(y));r.roles.set(y,temp);io.to(y).emit('role',{room,role:r.roles.get(y)});io.to(x).emit('role',{room,role:r.roles.get(x)})}}if(a['الشبح']){let x=find(a['الشبح'].targets[0]),y=find(a['الشبح'].targets[1]);if(x&&y&&x!==y&&r.alive.has(x)&&r.alive.has(y)){let temp=r.roles.get(x);r.roles.set(x,r.roles.get(y));r.roles.set(y,temp);io.to(x).emit('role',{room,role:r.roles.get(x)});io.to(y).emit('role',{room,role:r.roles.get(y)})}}let winners=checkWin(r);io.to(room).emit('nightResult',{room,eliminated:victim?nameOf(victim):'لا أحد',winners,alive:[...r.alive].map(id=>nameOf(id))});}
-function checkWin(r){let maf=[...r.roles.entries()].filter(([id,role])=>role==='مافيا'&&r.alive.has(id)).length,alive=r.alive.size;if(maf===0)return 'فريق المواطنين';if(maf>=alive-maf)return 'فريق المافيا';return null}
-server.listen(process.env.PORT||3000,()=>console.log('Server running'));
+
+// تشغيل الخادم
+app.listen(PORT, () => {
+  console.log(`موقع مسرح الجريمة يعمل على المنفذ ${PORT}`);
+});
