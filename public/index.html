@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>مسرح الجريمة | مافيا</title>
+<style>
+* {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+  font-family: Arial, sans-serif;
+  background: #0d1117;
+  color: white;
+  text-align: center;
+}
+header {
+  padding: 35px 15px;
+  background: linear-gradient(135deg,#190d12,#40151c,#10131a);
+  border-bottom: 2px solid #b52c3a;
+}
+h1 {
+  color: #e44b5a;
+  font-size: 36px;
+}
+header p {
+  color: #bbb;
+}
+.container {
+  max-width: 600px;
+  margin: auto;
+  padding: 20px;
+}
+button {
+  background: #a52838;
+  color: white;
+  border: none;
+  padding: 14px;
+  border-radius: 12px;
+  font-size: 17px;
+  cursor: pointer;
+  margin: 6px;
+}
+button:hover {
+  background: #d43b4b;
+}
+.secondary {
+  background: #222b36;
+}
+input, select {
+  width: 100%;
+  padding: 13px;
+  margin: 8px 0;
+  border-radius: 10px;
+  border: 1px solid #394552;
+  background: #151c25;
+  color: white;
+  font-size: 16px;
+}
+.panel {
+  background: #161e28;
+  padding: 20px;
+  border-radius: 16px;
+  margin-top: 18px;
+  border: 1px solid #333;
+}
+.hidden {
+  display: none;
+}
+.player {
+  background: #222b36;
+  padding: 12px;
+  margin: 8px;
+  border-radius: 10px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.player button {
+  padding: 8px 12px;
+}
+.card {
+  background: linear-gradient(145deg,#5a1824,#191b25);
+  border: 2px solid #b52c3a;
+  border-radius: 20px;
+  padding: 35px 20px;
+  margin: 15px auto;
+  min-height: 160px;
+}
+footer {
+  color: #777;
+  padding: 30px;
+}
+</style>
+</head>
+
+<body>
+
+<header>
+  <h1>🎭 مسرح الجريمة</h1>
+  <p>هل تستطيع كشف المافيا قبل أن تسيطر على المدينة؟</p>
+</header>
+
+<div class="container">
+
+  <div id="home">
+    <div class="panel">
+      <h2>مرحبًا بك في مافيا</h2>
+      <p>اجمع أصدقائك وابدأ اللعبة!</p>
+      <button onclick="showRoom()">إنشاء غرفة</button>
+      <button class="secondary" onclick="showRules()">طريقة اللعب</button>
+    </div>
+  </div>
+
+  <div id="rules" class="panel hidden">
+    <h2>📜 طريقة اللعب</h2>
+    <p>تتوزع الأدوار بين المافيا والمواطنين والأدوار الخاصة.</p>
+    <p>في الليل تتحرك الأدوار السرية، وفي النهار يتناقش اللاعبون ويحاولون معرفة المافيا.</p>
+    <p>يفوز المواطنون عند كشف جميع أفراد المافيا، وتفوز المافيا عندما تتمكن من السيطرة على التصويت.</p>
+
+    <h3>🃏 الأدوار</h3>
+
+    <div class="card">
+      <h3>🔪 المافيا</h3>
+      <p>تحاول المافيا عدم كشف هويتها والتأثير على تصويت اللاعبين.</p>
+    </div>
+
+    <div class="card">
+      <h3>🕵️ المحقق</h3>
+      <p>يستطيع المحقق التحقق من لاعب واحد كل ليلة لمعرفة ما إذا كان من المافيا.</p>
+    </div>
+
+    <div class="card">
+      <h3>🩺 الطبيب</h3>
+      <p>يختار الطبيب لاعبًا لحمايته كل ليلة.</p>
+    </div>
+
+    <div class="card">
+      <h3>👤 المواطن</h3>
+      <p>يساعد المواطن في النقاش والتصويت لكشف المافيا.</p>
+    </div>
+
+    <button onclick="goHome()">رجوع</button>
+  </div>
+
+  <div id="room" class="panel hidden">
+    <h2>🏠 إعداد غرفة</h2>
+
+    <label>عدد اللاعبين</label>
+    <select id="count">
+      <option value="4">4 لاعبين</option>
+      <option value="5">5 لاعبين</option>
+      <option value="6">6 لاعبين</option>
+      <option value="7">7 لاعبين</option>
+      <option value="8">8 لاعبين</option>
+      <option value="9">9 لاعبين</option>
+      <option value="10">10 لاعبين</option>
+      <option value="11">11 لاعبًا</option>
+      <option value="12">12 لاعبًا</option>
+    </select>
+
+    <input id="nameInput" placeholder="اكتب اسم اللاعب">
+
+    <button onclick="addPlayer()">إضافة لاعب</button>
+
+    <div id="players"></div>
+
+    <button onclick="startGame()">🎲 توزيع الأدوار</button>
+    <button class="secondary" onclick="goHome()">رجوع</button>
+  </div>
+
+  <div id="game" class="panel hidden">
+    <h2>🎭 توزيع الأدوار</h2>
+    <p>مرر الهاتف لكل لاعب ليعرف دوره بسرية.</p>
+
+    <div class="card" id="roleCard">
+      <h2 id="playerTurn"></h2>
+      <p id="roleText">اضغط لإظهار الدور</p>
+      <button onclick="revealRole()">كشف الدور</button>
+    </div>
+
+    <button onclick="nextPlayer()">اللاعب التالي</button>
+    <button class="secondary" onclick="goHome()">إنهاء اللعبة</button>
+  </div>
+
+</div>
+
+<footer>
+  مسرح الجريمة 🎭
+</footer>
+
+<script>
+let playerList = [];
+let roles = [];
+let current = 0;
+let revealed = false;
+
+function hideAll() {
+  document.getElementById("home").classList.add("hidden");
+  document.getElementById("rules").classList.add("hidden");
+  document.getElementById("room").classList.add("hidden");
+  document.getElementById("game").classList.add("hidden");
+}
+
+function goHome() {
+  hideAll();
+  document.getElementById("home").classList.remove("hidden");
+}
+
+function showRoom() {
+  hideAll();
+  document.getElementById("room").classList.remove("hidden");
+}
+
+function showRules() {
+  hideAll();
+  document.getElementById("rules").classList.remove("hidden");
+}
+
+function addPlayer() {
+  let input = document.getElementById("nameInput");
+  let name = input.value.trim();
+
+  if (!name) {
+    alert("اكتب اسم اللاعب أولاً");
+    return;
+  }
+
+  if (playerList.includes(name)) {
+    alert("هذا الاسم موجود بالفعل");
+    return;
+  }
+
+  if (playerList.length >= Number(document.getElementById("count").value)) {
+    alert("وصلت إلى العدد المحدد للاعبين");
+    return;
+  }
+
+  playerList.push(name);
+  input.value = "";
+  renderPlayers();
+}
+
+function removePlayer(index) {
+  playerList.splice(index, 1);
+  renderPlayers();
+}
+
+function renderPlayers() {
+  let box = document.getElementById("players");
+  box.innerHTML = "<h3>اللاعبون (" + playerList.length + ")</h3>";
+
+  playerList.forEach((name, index) => {
+    box.innerHTML += `
+      <div class="player">
+        <span>${index + 1} - ${escapeHTML(name)}</span>
+        <button onclick="removePlayer(${index})">حذف</button>
+      </div>
+    `;
+  });
+}
+
+function escapeHTML(text) {
+  return text.replace(/[&<>"']/g, function(c) {
+    return {
+      "&": "&amp;",
+      "<": "&lt;",
+      ">": "&gt;",
+      '"': "&quot;",
+      "'": "&#39;"
+    }[c];
+  });
+}
+
+function startGame() {
+  let limit = Number(document.getElementById("count").value);
+
+  if (playerList.length !== limit) {
+    alert("أضف " + limit + " لاعبين لبدء اللعبة");
+    return;
+  }
+
+  let mafiaCount = Math.max(1, Math.floor(limit / 4));
+
+  roles = [];
+
+  for (let i = 0; i < mafiaCount; i++) {
+    roles.push("المافيا");
+  }
+
+  roles.push("المحقق");
+  roles.push("الطبيب");
+
+  while (roles.length < limit) {
+    roles.push("المواطن");
+  }
+
+  roles.sort(() => Math.random() - 0.5);
+
+  current = 0;
+
+  hideAll();
+  document.getElementById("game").classList.remove("hidden");
+  showCurrent();
+}
+
+function showCurrent() {
+  revealed = false;
+  document.getElementById("playerTurn").innerText =
+    "دور اللاعب: " + playerList[current];
+
+  document.getElementById("roleText").innerText =
+    "اضغط لإظهار الدور";
+
+  document.getElementById("roleText").style.color = "white";
+}
+
+function revealRole() {
+  if (revealed) return;
+
+  revealed = true;
+
+  document.getElementById("roleText").innerText =
+    "🎭 دورك هو: " + roles[current];
+
+  document.getElementById("roleText").style.color = "#ff6475";
+}
+
+function nextPlayer() {
+  if (!revealed) {
+    alert("اكشف الدور أولاً");
+    return;
+  }
+
+  current++;
+
+  if (current >= playerList.length) {
+    document.getElementById("playerTurn").innerText =
+      "تم توزيع جميع الأدوار";
+
+    document.getElementById("roleText").innerText =
+      "ابدأوا اللعب!";
+
+    return;
+  }
+
+  showCurrent();
+}
+</script>
+
+</body>
+  </html>
